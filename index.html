@@ -2,42 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/style.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri App</title>
-    <script type="module" src="/src/main.ts" defer></script>
+    <title>NFS Helper</title>
   </head>
-
   <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
+    <div class="container">
+      <h1>NFS 共享助手</h1>
 
       <div class="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/src/assets/vite.svg" class="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img
-            src="/src/assets/tauri.svg"
-            class="logo tauri"
-            alt="Tauri logo"
-          />
-        </a>
-        <a href="https://www.typescriptlang.org/docs" target="_blank">
-          <img
-            src="/src/assets/typescript.svg"
-            class="logo typescript"
-            alt="typescript logo"
-          />
-        </a>
+        <label for="pc-path">本机共享目录:</label>
+        <input id="pc-path" placeholder="/home/user/shared" />
       </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
+      <div class="row">
+        <label for="board-ip">开发板 IP:</label>
+        <input id="board-ip" placeholder="192.168.1.100" />
+      </div>
+      <div class="row">
+        <label for="board-path">开发板挂载点:</label>
+        <input id="board-path" placeholder="/mnt/nfs" />
+      </div>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
-    </main>
+      <div class="button-group">
+        <button id="check-btn">检查环境</button>
+        <button id="apply-btn">生成挂载命令</button>
+      </div>
+
+      <pre id="result-area"></pre>
+
+    </div>
+    <script type="module" src="/main.ts"></script>
   </body>
 </html>
