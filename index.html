@@ -10,13 +10,26 @@
     <div class="container">
       <h1>NFS 共享助手</h1>
 
+      <p>请填写以下信息以生成NFS挂载命令：</p>
       <div class="row">
-        <label for="pc-path">本机共享目录:</label>
-        <input id="pc-path" placeholder="/home/user/shared" />
+        <label for="pc-path">本机共享路径:</label>
+        <input id="pc-path" placeholder="/path/to/share" />
+      </div>
+      <div class="row">
+        <label for="pc-password">本机密码:</label>
+        <input id="pc-password" type="password" placeholder="请输入密码" />
       </div>
       <div class="row">
         <label for="board-ip">开发板 IP:</label>
         <input id="board-ip" placeholder="192.168.1.100" />
+      </div>
+      <div class="row">
+        <label for="board-user">开发板 用户名:</label>
+        <input id="board-user" placeholder="user" />
+      </div>
+      <div class="row">
+        <label for="board-password">开发板 密码:</label>
+        <input id="board-password" type="password" placeholder="请输入密码" />
       </div>
       <div class="row">
         <label for="board-path">开发板挂载点:</label>
