@@ -16,7 +16,10 @@ const boardPasswordInput = document.querySelector("#board-password") as HTMLInpu
 // 获取按钮和结果区域的引用
 const checkBtn = document.querySelector("#check-btn") as HTMLButtonElement;
 const applyBtn = document.querySelector("#apply-btn") as HTMLButtonElement;
+const importBtn = document.querySelector("#import-btn") as HTMLButtonElement;
+const exportBtn = document.querySelector("#export-btn") as HTMLButtonElement;
 const resultArea = document.querySelector("#result-area") as HTMLPreElement;
+
 
 // 监听后端事件
 listen<string>('sidecar-output', (event) => {
@@ -77,4 +80,48 @@ applyBtn.addEventListener("click", async () => {
 
     // 不返回结果，而是监听后端事件
     resultArea.textContent += "自动化流程已启动，请查看日志输出。\n";
+});
+
+// 导出按钮的点击事件
+exportBtn.addEventListener("click", async () => {
+    // 1. 从UI收集所有数据
+    const config = {
+        pc_ip: pcIpInput.value,
+        pc_path: pcPathInput.value,
+        pc_password: pcPasswordInput.value,
+        board_ip: boardIpInput.value,
+        board_user: boardUserInput.value,
+        board_password: boardPasswordInput.value,
+        board_path: boardPathInput.value,
+    };
+
+    try {
+        // 2. 调用后端的导出命令
+        await invoke("export_config", { config });
+        alert("配置已成功导出！");
+    } catch (error) {
+        alert(`导出配置失败: ${error}`);
+    }
+});
+
+// 导入按钮的点击事件
+importBtn.addEventListener("click", async () => {
+    try {
+        // 1. 调用后端的导入命令，它会返回解析后的配置数据
+        const config = await invoke<any>("import_config");
+
+        // 2. 如果成功返回了数据，就用它来填充UI
+        if (config) {
+            pcIpInput.value = config.pc_ip || '';
+            pcPathInput.value = config.pc_path || '';
+            pcPasswordInput.value = config.pc_password || '';
+            boardIpInput.value = config.board_ip || '';
+            boardUserInput.value = config.board_user || '';
+            boardPasswordInput.value = config.board_password || '';
+            boardPathInput.value = config.board_path || '';
+            alert("配置已成功导入！");
+        }
+    } catch (error) {
+        alert(`导入配置失败: ${error}`);
+    }
 });

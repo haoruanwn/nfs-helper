@@ -1,10 +1,26 @@
-// src-tauri/src/main.rs
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::process::{Command, Stdio}; 
 use std::io::{BufRead, BufReader};
 use tauri::{Manager, Emitter};
+use serde::{Serialize, Deserialize};
+use tauri_plugin_dialog::{FileDialogBuilder, FilePath, DialogExt}; //对话框api
+use std::fs::{self};
+use tauri::AppHandle;
+
+
+// 定义应用配置的结构体
+#[derive(Serialize, Deserialize)]
+struct AppConfig {
+    pc_ip: String,
+    pc_path: String,
+    pc_password: String,
+    board_ip: String,
+    board_user: String,
+    board_password: String,
+    board_path: String,
+}
 
 
 // 用于检查依赖，通过检查NFS相关命令的版本
@@ -58,7 +74,6 @@ async fn apply_nfs_share(
     board_password: String, 
     board_path: String
 ) -> Result<(), String> {
-    // 1. 定位Python脚本路径
     // tauri::api::path::resolve_path 会处理开发和发布环境的路径差异
     let cli_path = app_handle.path().resolve("resources/nfs_helper_cli", tauri::path::BaseDirectory::Resource)
     .map_err(|e| format!("无法解析可执行文件路径: {}", e))?;
@@ -122,6 +137,47 @@ async fn apply_nfs_share(
     Ok(())
 }
 
+#[tauri::command]
+async fn export_config(app_handle: AppHandle, config: AppConfig) -> Result<(), String> {
+    let toml_string = toml::to_string(&config).map_err(|e| e.to_string())?;
+    FileDialogBuilder::new(app_handle.dialog().clone())
+        .add_filter("TOML", &["toml"])
+        .set_file_name("nfs_preset.toml")
+        .save_file(move |file_path| {
+            if let Some(FilePath::Path(path)) = file_path {
+                if let Err(e) = fs::write(path, toml_string) {
+                    eprintln!("Failed to write to file: {}", e);
+                }
+            }
+        });
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn import_config(app_handle: AppHandle) -> Result<AppConfig, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    FileDialogBuilder::new(app_handle.dialog().clone())
+        .add_filter("TOML", &["toml"])
+        .pick_file(move |file_path| {
+            if let Some(FilePath::Path(path)) = file_path {
+                match fs::read_to_string(path) {
+                    Ok(content) => {
+                        match toml::from_str::<AppConfig>(&content) {
+                            Ok(config) => tx.send(Ok(config)).unwrap(),
+                            Err(e) => tx.send(Err(format!("解析TOML失败: {}", e))).unwrap(),
+                        }
+                    }
+                    Err(e) => tx.send(Err(format!("读取文件失败: {}", e))).unwrap(),
+                }
+            } else {
+                tx.send(Err("用户取消了操作".to_string())).unwrap();
+            }
+        });
+
+    rx.recv().unwrap()
+}
 
 fn main() {
     tauri::Builder::default()
@@ -131,7 +187,9 @@ fn main() {
         // 注册定义的Commands
         .invoke_handler(tauri::generate_handler![
             check_dependencies,
-            apply_nfs_share
+            apply_nfs_share,
+            export_config,
+            import_config  
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
