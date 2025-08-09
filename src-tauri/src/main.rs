@@ -2,7 +2,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::process::Command; // 引入Command用于执行系统命令
+use std::process::Command as StdCommand; 
+use tauri::process::{Command, CommandEvent}; // 这是Tauri 2的Sidecar Command
+use tauri::Manager;
 
 
 // 用于检查依赖，通过检查NFS相关命令的版本
@@ -17,7 +19,7 @@ fn check_dependencies() -> Result<String, String> {
     ];
 
     for (cmd, arg) in commands_to_try {
-        match Command::new(cmd).arg(arg).output() {
+        match StdCommand::new(cmd).arg(arg).output() {
             Ok(output) => {
                 if output.status.success() {
                     // 命令成功执行，我们提取标准输出的第一行作为版本信息
@@ -38,44 +40,65 @@ fn check_dependencies() -> Result<String, String> {
     Err("错误: 未找到可用的NFS工具 (如 rpc.nfsd, mount.nfs)。\n请根据你的Linux发行版安装相应软件包，例如 'nfs-utils' (Fedora/Arch) 或 'nfs-common' (Debian/Ubuntu)。".to_string())
 }
 
+
+
+
 // 用于应用NFS共享配置
+// Command现在需要是 async 的，并且需要一个窗口句柄来发送事件
+// apply_nfs_share 函数，更新了签名以接收所有参数
 #[tauri::command]
-async fn apply_nfs_share(pc_path: String, pc_password: String, board_ip: String, board_path: String, board_user: String, board_password: String) -> Result<String, String> {
-    // 这是一个非常重要的安全提示：
-    // 直接修改 /etc/exports 并重启服务需要sudo权限。
-    // 在Tauri应用中直接提权是一个复杂且有风险的操作。
+async fn apply_nfs_share(
+    window: tauri::Window,
+    pc_path: String,
+    pc_password: String,
+    board_ip: String,
+    board_user: String, 
+    board_password: String, 
+    board_path: String
+) -> Result<(), String> {
     
-    // **初级阶段建议:**
-    // 我们的应用可以生成需要执行的命令，然后让用户自己复制到终端里用sudo执行。
-    // 这是最安全、最简单的起步方式。
+    // 使用 tauri::process::Command 来定位 Sidecar
+    let sidecar_cmd = Command::new_sidecar("nfs-automator")
+        .map_err(|e| e.to_string())?;
 
-    let export_line = format!("{} {}(rw,sync,no_subtree_check,no_root_squash)", pc_path, board_ip);
+    // 准备所有参数传递给 Sidecar
+    let args = vec![
+        "share".to_string(),
+        pc_path,
+        pc_password,
+        board_ip,
+        board_user,
+        board_password,
+        board_path,
+    ];
     
-    let instructions = format!(
-        "目前已有信息: \n\
-        PC路径: {}\n\
-        PC密码: {}\n\
-        开发板IP: {}\n\
-        开发板路径: {}\n\
-        开发板用户: {}\n\
-        开发板密码: {}\n\
-        请使用sudo权限在终端中执行以下命令来应用配置:\n\n\
-        1. 备份当前的exports文件:\n\
-        sudo cp /etc/exports /etc/exports.bak\n\n\
-        2. 将配置写入exports文件 (这会覆盖原有文件，请谨慎操作!):\n\
-        echo '{}' | sudo tee /etc/exports\n\n\
-        3. 重新加载NFS配置:\n\
-        sudo exportfs -ra\n\n\
-        4. 重启NFS服务:\n\
-        sudo systemctl restart nfs-server\n\n\
-        完成后，请在开发板上尝试挂载:\n\
-        mkdir -p {}\n\
-        sudo mount -t nfs {}:{} {}",
-        pc_path, pc_password, board_ip, board_path, board_user, board_password,
-        export_line, board_path, board_ip, pc_path, board_path
-    );
+    let (mut rx, _child) = sidecar_cmd.args(args).spawn()
+        .map_err(|e| e.to_string())?;
 
-    Ok(instructions)
+    // 异步监听部分保持不变
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    window.emit("sidecar-output", Some(format!("[INFO] {}", line))).unwrap();
+                }
+                CommandEvent::Stderr(line) => {
+                    window.emit("sidecar-output", Some(format!("[ERROR] {}", line))).unwrap();
+                }
+                CommandEvent::Terminated(payload) => {
+                    if payload.code == Some(0) {
+                        window.emit("sidecar-output", Some("--- 操作成功完成 ---".to_string())).unwrap();
+                    } else {
+                        window.emit("sidecar-output", Some(format!("--- 操作失败，退出码: {:?} ---", payload.code))).unwrap();
+                    }
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+
+    Ok(())
 }
 
 

@@ -1,7 +1,6 @@
 // src/main.ts
 import { invoke } from "@tauri-apps/api/core";
-import { open, save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
+import { listen } from '@tauri-apps/api/event'; 
 
 
 // 获取DOM元素的引用
@@ -17,6 +16,13 @@ const boardPasswordInput = document.querySelector("#board-password") as HTMLInpu
 const checkBtn = document.querySelector("#check-btn") as HTMLButtonElement;
 const applyBtn = document.querySelector("#apply-btn") as HTMLButtonElement;
 const resultArea = document.querySelector("#result-area") as HTMLPreElement;
+
+// 监听后端事件
+listen<string>('sidecar-output', (event) => {
+  // 将新的日志追加到结果区域，并滚动到底部
+  resultArea.textContent += event.payload + '\n';
+  resultArea.scrollTop = resultArea.scrollHeight;
+});
 
 
 // 检查环境按钮的点击事件
@@ -35,7 +41,6 @@ checkBtn.addEventListener("click", async () => {
 
 // 应用配置按钮的点击事件
 applyBtn.addEventListener("click", async () => {
-    console.log("应用配置按钮被点击");
     const pcPath = pcPathInput.value;
     const pcPassword = pcPasswordInput.value;
     const boardIp = boardIpInput.value;
@@ -46,23 +51,27 @@ applyBtn.addEventListener("click", async () => {
     if (!pcPath || !pcPassword || !boardIp || !boardPath || !boardUser || !boardPassword) {
         resultArea.textContent = "错误：所有字段都必须填写！";
         resultArea.style.color = 'red';
-        console.error("错误：元素未填写全部");
         return;
     }
+    resultArea.textContent = '正在启动自动化流程...\n';
+    resultArea.style.color = 'inherit'; // 使用默认颜色
 
     try {
-        const instructions = await invoke<string>("apply_nfs_share", {
+        // 调用Rust command
+        await invoke("apply_nfs_share", {
             pcPath: pcPath,
             pcPassword: pcPassword,
             boardIp: boardIp,
-            boardPath: boardPath,
             boardUser: boardUser,
-            boardPassword: boardPassword
+            boardPassword: boardPassword,
+            boardPath: boardPath,
         });
-        resultArea.textContent = instructions;
-        resultArea.style.color = 'blue';
     } catch (error) {
-        resultArea.textContent = `生成命令时出错: ${error}`;
+        // 如果invoke本身失败（比如命令不存在）
+        resultArea.textContent += `启动命令时出错: ${error}\n`;
         resultArea.style.color = 'red';
     }
+
+    // 不返回结果，而是监听后端事件
+    resultArea.textContent += "自动化流程已启动，请查看日志输出。\n";
 });
