@@ -2,9 +2,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::process::Command as StdCommand; 
-use tauri::process::{Command, CommandEvent}; // 这是Tauri 2的Sidecar Command
-use tauri::Manager;
+use std::process::Command; 
 
 
 // 用于检查依赖，通过检查NFS相关命令的版本
@@ -19,7 +17,7 @@ fn check_dependencies() -> Result<String, String> {
     ];
 
     for (cmd, arg) in commands_to_try {
-        match StdCommand::new(cmd).arg(arg).output() {
+        match Command::new(cmd).arg(arg).output() {
             Ok(output) => {
                 if output.status.success() {
                     // 命令成功执行，我们提取标准输出的第一行作为版本信息
@@ -55,50 +53,10 @@ async fn apply_nfs_share(
     board_user: String, 
     board_password: String, 
     board_path: String
-) -> Result<(), String> {
-    
-    // 使用 tauri::process::Command 来定位 Sidecar
-    let sidecar_cmd = Command::new_sidecar("nfs-automator")
-        .map_err(|e| e.to_string())?;
+) -> Result<String, String> {
 
-    // 准备所有参数传递给 Sidecar
-    let args = vec![
-        "share".to_string(),
-        pc_path,
-        pc_password,
-        board_ip,
-        board_user,
-        board_password,
-        board_path,
-    ];
-    
-    let (mut rx, _child) = sidecar_cmd.args(args).spawn()
-        .map_err(|e| e.to_string())?;
-
-    // 异步监听部分保持不变
-    tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(line) => {
-                    window.emit("sidecar-output", Some(format!("[INFO] {}", line))).unwrap();
-                }
-                CommandEvent::Stderr(line) => {
-                    window.emit("sidecar-output", Some(format!("[ERROR] {}", line))).unwrap();
-                }
-                CommandEvent::Terminated(payload) => {
-                    if payload.code == Some(0) {
-                        window.emit("sidecar-output", Some("--- 操作成功完成 ---".to_string())).unwrap();
-                    } else {
-                        window.emit("sidecar-output", Some(format!("--- 操作失败，退出码: {:?} ---", payload.code))).unwrap();
-                    }
-                    break;
-                }
-                _ => {}
-            }
-        }
-    });
-
-    Ok(())
+    // 新的功能待实现
+    Ok("功能正在重构中...".to_string())
 }
 
 

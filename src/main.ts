@@ -1,6 +1,5 @@
 // src/main.ts
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from '@tauri-apps/api/event'; 
 
 
 // 获取DOM元素的引用
@@ -17,12 +16,6 @@ const checkBtn = document.querySelector("#check-btn") as HTMLButtonElement;
 const applyBtn = document.querySelector("#apply-btn") as HTMLButtonElement;
 const resultArea = document.querySelector("#result-area") as HTMLPreElement;
 
-// 监听后端事件
-listen<string>('sidecar-output', (event) => {
-  // 将新的日志追加到结果区域，并滚动到底部
-  resultArea.textContent += event.payload + '\n';
-  resultArea.scrollTop = resultArea.scrollHeight;
-});
 
 
 // 检查环境按钮的点击事件
@@ -57,21 +50,24 @@ applyBtn.addEventListener("click", async () => {
     resultArea.style.color = 'inherit'; // 使用默认颜色
 
     try {
-        // 调用Rust command
-        await invoke("apply_nfs_share", {
-            pcPath: pcPath,
-            pcPassword: pcPassword,
-            boardIp: boardIp,
-            boardUser: boardUser,
-            boardPassword: boardPassword,
-            boardPath: boardPath,
+        // invoke现在会等待所有操作完成
+        const result_logs = await invoke<string>("apply_nfs_share", {
+            pcPath,
+            pcPassword,
+            boardIp,
+            boardUser,
+            boardPassword,
+            boardPath,
         });
+        
+        // 一次性显示所有日志
+        resultArea.textContent = result_logs;
+        resultArea.style.color = 'green';
+
+
     } catch (error) {
-        // 如果invoke本身失败（比如命令不存在）
-        resultArea.textContent += `启动命令时出错: ${error}\n`;
+        // 如果invoke返回了Err，会在这里捕获
+        resultArea.textContent = error as string;
         resultArea.style.color = 'red';
     }
-
-    // 不返回结果，而是监听后端事件
-    resultArea.textContent += "自动化流程已启动，请查看日志输出。\n";
 });
