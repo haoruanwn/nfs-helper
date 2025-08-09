@@ -15,8 +15,10 @@ const resultArea = document.querySelector("#result-area") as HTMLPreElement;
 
 // 检查环境按钮的点击事件
 checkBtn.addEventListener("click", async () => {
+  console.log("检查环境按钮被点击");
   try {
-    const message = await invoke<string>("check_dependencies");
+    console.log("开始检查依赖");
+    const message = await invoke<string>("check_dependencies"); // 交给rust端处理
     resultArea.textContent = message;
     resultArea.style.color = 'green';
   } catch (error) {
@@ -27,6 +29,7 @@ checkBtn.addEventListener("click", async () => {
 
 // 应用配置按钮的点击事件
 applyBtn.addEventListener("click", async () => {
+    console.log("应用配置按钮被点击");
     const pcPath = pcPathInput.value;
     const boardIp = boardIpInput.value;
     const boardPath = boardPathInput.value;
@@ -34,6 +37,7 @@ applyBtn.addEventListener("click", async () => {
     if (!pcPath || !boardIp || !boardPath) {
         resultArea.textContent = "错误：所有字段都必须填写！";
         resultArea.style.color = 'red';
+        console.error("错误：元素未填写全部");
         return;
     }
 
