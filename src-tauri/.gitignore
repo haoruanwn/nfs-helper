@@ -13,3 +13,7 @@ sidecar-venv/
 
 nfs-automator.spec
 build/
+dist/
+
+nfs_helper_cli
+nfs_helper_cli.spec

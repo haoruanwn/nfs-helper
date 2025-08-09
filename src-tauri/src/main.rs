@@ -60,8 +60,7 @@ async fn apply_nfs_share(
 ) -> Result<(), String> {
     // 1. 定位Python脚本路径
     // tauri::api::path::resolve_path 会处理开发和发布环境的路径差异
-    // 我们将 sidecar.py 放在 src-tauri/ 目录下，并作为资源文件打包
-    let script_path = app_handle.path().resolve("binaries/nfs_helper_cli", tauri::path::BaseDirectory::Resource)
+    let cli_path = app_handle.path().resolve("resources/nfs_helper_cli", tauri::path::BaseDirectory::Resource)
     .map_err(|e| format!("无法解析可执行文件路径: {}", e))?;
 
     // 2. 准备参数
@@ -77,7 +76,7 @@ async fn apply_nfs_share(
     ];
 
     // 3. 创建子进程
-    let mut child = Command::new(script_path) // 直接调用 python3
+    let mut child = Command::new(cli_path) 
         .args(args)
         .stdout(Stdio::piped()) // 捕获标准输出
         .stderr(Stdio::piped()) // 捕获标准错误
