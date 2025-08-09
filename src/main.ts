@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 // pc和目标开发板的信息
 const pcPathInput = document.querySelector("#pc-path") as HTMLInputElement;
 const pcPasswordInput = document.querySelector("#pc-password") as HTMLInputElement;
+const pcIpInput = document.querySelector("#pc-ip") as HTMLInputElement; 
 const boardIpInput = document.querySelector("#board-ip") as HTMLInputElement;
 const boardPathInput = document.querySelector("#board-path") as HTMLInputElement;
 const boardUserInput = document.querySelector("#board-user") as HTMLInputElement;
@@ -36,12 +37,13 @@ checkBtn.addEventListener("click", async () => {
 applyBtn.addEventListener("click", async () => {
     const pcPath = pcPathInput.value;
     const pcPassword = pcPasswordInput.value;
+    const pcIp = pcIpInput.value;
     const boardIp = boardIpInput.value;
     const boardPath = boardPathInput.value;
     const boardUser = boardUserInput.value;
     const boardPassword = boardPasswordInput.value; 
 
-    if (!pcPath || !pcPassword || !boardIp || !boardPath || !boardUser || !boardPassword) {
+    if (!pcPath || !pcPassword || !pcIp || !boardIp || !boardPath || !boardUser || !boardPassword) {
         resultArea.textContent = "错误：所有字段都必须填写！";
         resultArea.style.color = 'red';
         return;
@@ -54,6 +56,7 @@ applyBtn.addEventListener("click", async () => {
         const result_logs = await invoke<string>("apply_nfs_share", {
             pcPath,
             pcPassword,
+            pcIp,
             boardIp,
             boardUser,
             boardPassword,
