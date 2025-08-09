@@ -2,9 +2,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::process::Command as StdCommand; 
-use tauri::process::{Command, CommandEvent}; // 这是Tauri 2的Sidecar Command
-use tauri::Manager;
+use std::process::{Command, Stdio}; 
+use std::io::{BufRead, BufReader};
+use tauri::{Manager, Emitter};
 
 
 // 用于检查依赖，通过检查NFS相关命令的版本
@@ -19,7 +19,7 @@ fn check_dependencies() -> Result<String, String> {
     ];
 
     for (cmd, arg) in commands_to_try {
-        match StdCommand::new(cmd).arg(arg).output() {
+        match Command::new(cmd).arg(arg).output() {
             Ok(output) => {
                 if output.status.success() {
                     // 命令成功执行，我们提取标准输出的第一行作为版本信息
@@ -49,54 +49,76 @@ fn check_dependencies() -> Result<String, String> {
 #[tauri::command]
 async fn apply_nfs_share(
     window: tauri::Window,
+    app_handle: tauri::AppHandle,
     pc_path: String,
     pc_password: String,
+    pc_ip: String,
     board_ip: String,
     board_user: String, 
     board_password: String, 
     board_path: String
 ) -> Result<(), String> {
-    
-    // 使用 tauri::process::Command 来定位 Sidecar
-    let sidecar_cmd = Command::new_sidecar("nfs-automator")
-        .map_err(|e| e.to_string())?;
+    // 1. 定位Python脚本路径
+    // tauri::api::path::resolve_path 会处理开发和发布环境的路径差异
+    // 我们将 sidecar.py 放在 src-tauri/ 目录下，并作为资源文件打包
+    let script_path = app_handle.path().resolve("binaries/nfs_helper_cli", tauri::path::BaseDirectory::Resource)
+    .map_err(|e| format!("无法解析可执行文件路径: {}", e))?;
 
-    // 准备所有参数传递给 Sidecar
+    // 2. 准备参数
     let args = vec![
         "share".to_string(),
         pc_path,
         pc_password,
+        pc_ip, 
         board_ip,
         board_user,
         board_password,
         board_path,
     ];
-    
-    let (mut rx, _child) = sidecar_cmd.args(args).spawn()
-        .map_err(|e| e.to_string())?;
 
-    // 异步监听部分保持不变
+    // 3. 创建子进程
+    let mut child = Command::new(script_path) // 直接调用 python3
+        .args(args)
+        .stdout(Stdio::piped()) // 捕获标准输出
+        .stderr(Stdio::piped()) // 捕获标准错误
+        .spawn()
+        .map_err(|e| format!("无法启动Python子进程: {}", e))?;
+
+    // 4. 异步读取输出并发送到前端
+    let stdout = child.stdout.take().expect("无法获取子进程的stdout");
+    let stderr = child.stderr.take().expect("无法获取子进程的stderr");
+
+    let window_stdout = window.clone();
     tauri::async_runtime::spawn(async move {
-        while let Some(event) = rx.recv().await {
-            match event {
-                CommandEvent::Stdout(line) => {
-                    window.emit("sidecar-output", Some(format!("[INFO] {}", line))).unwrap();
-                }
-                CommandEvent::Stderr(line) => {
-                    window.emit("sidecar-output", Some(format!("[ERROR] {}", line))).unwrap();
-                }
-                CommandEvent::Terminated(payload) => {
-                    if payload.code == Some(0) {
-                        window.emit("sidecar-output", Some("--- 操作成功完成 ---".to_string())).unwrap();
-                    } else {
-                        window.emit("sidecar-output", Some(format!("--- 操作失败，退出码: {:?} ---", payload.code))).unwrap();
-                    }
-                    break;
-                }
-                _ => {}
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line_str) = line {
+                window_stdout.emit("sidecar-output", Some(format!("[INFO] {}", line_str))).unwrap();
             }
         }
     });
+
+    let window_stderr = window.clone();
+    tauri::async_runtime::spawn(async move {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(line_str) = line {
+                window_stderr.emit("sidecar-output", Some(format!("[ERROR] {}", line_str))).unwrap();
+            }
+        }
+    });
+
+    // 5. 监听进程结束
+    tauri::async_runtime::spawn(async move {
+        let status = child.wait().expect("子进程执行出错");
+        let code = status.code();
+        if status.success() {
+            window.emit("sidecar-output", Some("--- 操作成功完成 ---".to_string())).unwrap();
+        } else {
+            window.emit("sidecar-output", Some(format!("--- 操作失败，退出码: {:?} ---", code))).unwrap();
+        }
+    });
+
 
     Ok(())
 }
