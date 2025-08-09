@@ -1,19 +1,22 @@
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.typescript:hover {
-  filter: drop-shadow(0 0 2em #2d79c7);
-}
+/* --- 基础与深色主题 --- */
 :root {
+  /* 基础字体和颜色设定 */
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
+  font-size: 16px; /* 默认字体大小，可以根据喜好调整 */
+  line-height: 1.6;
   font-weight: 400;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  /* 深色主题颜色变量 */
+  --color-background: #1a1b26; /* 深蓝紫色背景 */
+  --color-surface: #24283b;   /* 卡片和输入框背景 */
+  --color-text: #c0caf5;      /* 主要文本颜色 (淡蓝色) */
+  --color-text-dim: #a9b1d6;   /* 辅助性文本颜色 */
+  --color-primary: #7aa2f7;   /* 主题色/高亮色 (蓝色) */
+  --color-green: #9ece6a;     /* 成功状态颜色 (绿色) */
+  --color-red: #f7768e;       /* 错误状态颜色 (红色) */
+  --color-border: #414868;    /* 边框颜色 */
 
+  /* 字体渲染优化 */
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -21,96 +24,159 @@
   -webkit-text-size-adjust: 100%;
 }
 
-.container {
+body {
   margin: 0;
-  padding-top: 10vh;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+
+/* --- 整体布局容器 --- */
+.container {
+  width: 100%;
+  max-width: 720px; /* 限制最大宽度，避免在大屏幕上过宽 */
+  margin: 2rem;
+  padding: 2rem;
+  background-color: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 1.5rem; /* 统一设置元素间的垂直间距 */
+}
+
+h1 {
+  margin: 0;
   text-align: center;
+  font-size: 2.2em; /* 调大标题 */
+  color: var(--color-primary);
+  letter-spacing: 1px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+p {
+  margin: 0;
+  text-align: center;
+  color: var(--color-text-dim);
+  font-size: 1.1em;
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
+
+/* --- 表单网格与对齐 --- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* 在移动端为单列 */
+  gap: 1rem;
 }
 
 .row {
   display: flex;
-  justify-content: center;
+  flex-direction: column; /* 移动端默认垂直排列 */
+  align-items: flex-start; /* 标签左对齐 */
+  text-align: left;
 }
 
-a {
+.row label {
+  margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+  font-size: 1.05em;
+  color: var(--color-text-dim);
 }
 
-a:hover {
-  color: #535bf2;
+/* 在较宽的屏幕上实现标签和输入框的左右对齐 */
+@media (min-width: 600px) {
+  .row {
+    flex-direction: row;
+    align-items: center;
+  }
+  .row label {
+    margin-bottom: 0;
+    margin-right: 1rem;
+    width: 150px; /* 固定标签宽度以实现完美对齐 */
+    text-align: right;
+  }
 }
 
-h1 {
-  text-align: center;
-}
 
-input,
-button {
+/* --- 输入框和按钮样式 --- */
+input {
+  flex-grow: 1; /* 让输入框填满剩余空间 */
   border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  border: 2px solid var(--color-border);
+  padding: 0.8em 1.2em; /* 调大内边距 */
+  font-size: 1.1em; /* 调大字体 */
   font-weight: 500;
   font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  color: var(--color-text);
+  background-color: var(--color-background);
+  transition: border-color 0.25s, box-shadow 0.25s;
+  outline: none;
+}
+
+input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.3);
+}
+
+.button-group {
+  display: flex;
+  flex-wrap: wrap; /* 允许按钮换行 */
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 button {
   cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  padding: 0.8em 1.5em; /* 调大内边距 */
+  font-size: 1.1em; /* 调大字体 */
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--color-text-dim);
+  background-color: transparent;
+  transition: all 0.25s;
 }
 
 button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-input,
-button {
-  outline: none;
+/* 主操作按钮的突出样式 */
+button.primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-background);
 }
 
-#greet-input {
-  margin-right: 5px;
+button.primary:hover {
+  background-color: #9aa5ce;
+  border-color: #9aa5ce;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
 
-  a:hover {
-    color: #24c8db;
-  }
+/* --- 结果输出区域 --- */
+.result-container {
+  margin-top: 1rem;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1em;
+  min-height: 100px;
+  max-height: 300px; /* 限制最大高度，超出则滚动 */
+  overflow-y: auto; /* 内容超出时显示滚动条 */
+}
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+pre#result-area {
+  white-space: pre-wrap; /* 自动换行 */
+  word-wrap: break-word;
+  text-align: left;
+  margin: 0;
+  font-family: "Fira Code", "Courier New", monospace; /* 使用等宽字体以获得更好的日志可读性 */
+  font-size: 1em;
+  color: var(--color-text-dim);
 }

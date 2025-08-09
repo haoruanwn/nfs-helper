@@ -29,3 +29,9 @@ pip install paramiko pyinstaller
 ```bash
 pyinstaller --onefile --name nfs-automator sidecar.py
 ```
+
+## 操作指南
+提供了项目初始化脚本和便捷测试脚本(init.sh 和 test.sh)
+## 效果展示
+
+![Snipaste_2025-08-09_20-02-37](https://markdownforyuanhao.oss-cn-hangzhou.aliyuncs.com/img1/20250809201028072.png)
