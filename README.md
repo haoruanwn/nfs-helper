@@ -1,20 +1,82 @@
-# 介绍
+# NFS-HELPER
 
 基于 Tauri 2 框架开发的开发者小工具，自动化执行将本地路径挂载到 Linux 开发板。
 
-## 效果展示
+### 界面展示
 
 ![Snipaste_2025-08-09_22-19-08](https://markdownforyuanhao.oss-cn-hangzhou.aliyuncs.com/img1/20250809222122877.png)
 
-## 操作指南
+### 操作指南
 
-如何编译请参考：[搭建环境](https://v2.tauri.app/zh-cn/start/)
+#### 使用 Docker 进行构建
 
-项目提供了初始化脚本 `init.sh` 和便捷测试脚本 `test.sh`。
+在项目根目录执行以下命令，以使用 Docker 容器环境进行构建。
 
-## Bug说明
+1. **创建并启动容器**
 
-### 1\. 禁用硬件加速
+   ```bash
+   docker compose up -d
+   ```
+   
+2. **进入容器环境**
+
+   ```bash
+   docker exec -it tauri_builder_custom bash
+   ```
+   
+3. **环境初始化**
+
+   在容器内执行初始化脚本。
+
+   ```bash
+   ./init.sh
+   ```
+   
+4. **打包 AppImage**
+
+   执行打包脚本以生成 `AppImage` 文件。
+
+   ```bash
+   ./appimage.sh
+   ```
+
+### 开发说明
+
+如果需要进行开发和调试，可以直接在原生环境中运行测试脚本。由于在 Docker 容器中运行脚本无法显示图形化界面，因此推荐在原生环境进行开发。
+
+**前置条件**:
+
+- 确保你的原生环境已安装 `Node.js` 和 `Cargo` 等必要的开发工具。
+
+**运行测试**:
+
+```bash
+./test.sh
+```
+
+### 发行版兼容性说明
+
+#### 构建环境
+
+本应用使用基于 Debian 12 的 Docker 镜像进行构建，以确保良好的兼容性。
+
+| 镜像                                            | 基础镜像          | 描述                                         |
+| ----------------------------------------------- | ----------------- | -------------------------------------------- |
+| `ivangabriele/tauri-builder:debian-bookworm-20` | `rust:1-bookworm` | Debian v12 ("bookworm") + Rust v1 + Node v20 |
+
+#### 已测试的发行版
+
+目前已在以下发行版上测试并可以成功运行：
+
+| 发行版    | 桌面环境 | 显示服务器 |
+| --------- | -------- | ---------- |
+| Fedora 42 | KDE      | Wayland    |
+| Debian 12 | KDE      | Wayland    |
+
+
+### Bug说明
+
+#### 1\. 禁用硬件加速
 
 在 Fedora 42 KDE Plasma Wayland 环境中，由于 NVIDIA 驱动问题，运行时可能会出现以下报错：
 
@@ -30,39 +92,7 @@ Failed to create GBM buffer of size 800x600: 无效的参数
 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./nfs-helper_0.1.0_amd64.AppImage
 ```
 
-### 2\. 打包 AppImage 时无法运行 linuxdeploy
+#### 2\. Ubuntu22.04运行问题
+应用使用基于debian12的docker镜像构建，打包的appimage运行在ubuntu22.04上时，会有一个库有版本兼容性问题。目前猜测可以把这个动态库直接打包进appimage，等待后续支持
 
-在打包 AppImage 过程中，可能会遇到 `linuxdeploy` 运行失败的问题，错误日志如下：
-
-```bash
-nfs-helper on  main [!] via  v22.17.1 
-❯ APPIMAGE_STRIP_SKIP=1 pnpm tauri build
-
-> nfs-helper@0.1.0 tauri /home/hao/projects/tauri/nfs-helper
-> tauri build
-
-      Running beforeBuildCommand `pnpm build`
-
-> nfs-helper@0.1.0 build /home/hao/projects/tauri/nfs-helper
-> tsc && vite build
-
-vite v6.3.5 building for production...
-✓ 7 modules transformed.
-dist/index.html               1.91 kB │ gzip: 0.72 kB
-dist/assets/index-D4T-YFLJ.css  2.62 kB │ gzip: 0.97 kB
-dist/assets/index-C8nuDSjR.js   3.72 kB │ gzip: 1.70 kB
-✓ built in 106ms
-    Compiling nfs-helper v0.1.0 (/home/hao/projects/tauri/nfs-helper/src-tauri)
-     Finished `release` profile [optimized] target(s) in 58.93s
-       Built application at: /home/hao/projects/tauri/nfs-helper/src-tauri/target/release/nfs-helper
-        Info Patching binary "/home/hao/projects/tauri/nfs-helper/src-tauri/target/release/nfs-helper" for type appimage
-     Bundling nfs-helper_0.1.0_amd64.AppImage (/home/hao/projects/tauri/nfs-helper/src-tauri/target/release/bundle/appimage/nfs-helper_0.1.0_amd64.AppImage)
-failed to bundle project: `failed to run linuxdeploy`
-        Error failed to bundle project: `failed to run linuxdeploy`
-```
-
-根据相关讨论 [[bug] Calling strip causes Tauri to fail building AppImage](https://github.com/tauri-apps/tauri/issues/11149)，可以在打包时执行以下命令来解决：
-
-```bash
-NO_STRIP=true pnpm tauri build
-```
+![C2768852E67BBD66071D379E8D7585BE](https://markdownforyuanhao.oss-cn-hangzhou.aliyuncs.com/img1/20250810003817934.png)

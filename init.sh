@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- 初始化开发环境脚本 for nfs-helper ---
+# --- 初始化开发环境脚本 for nfs-helper (容器适配版) ---
 
 # set -e: 脚本中任何命令返回非零退出码时，立即退出。
 # set -u: 尝试使用未设置的变量时，立即退出。
@@ -58,13 +58,16 @@ fi
 
 VENV_NAME="sidecar-venv"
 
+# 强制重新创建虚拟环境，避免因挂载宿主机旧环境导致的问题
 if [ -d "$VENV_NAME" ]; then
-    echo "虚拟环境 '$VENV_NAME' 已存在，跳过创建步骤。"
-else
-    echo "正在创建Python虚拟环境: $VENV_NAME..."
-    python3 -m venv "$VENV_NAME"
-    echo "虚拟环境创建成功。"
+    echo "发现已存在的虚拟环境 '$VENV_NAME'，将强制删除并重建以确保兼容性..."
+    rm -rf "$VENV_NAME"
 fi
+
+echo "正在创建Python虚拟环境: $VENV_NAME..."
+python3 -m venv "$VENV_NAME"
+echo "虚拟环境创建成功。"
+
 
 echo "激活虚拟环境并安装Python包 (paramiko, pyinstaller)..."
 # 直接使用虚拟环境中的pip来安装，无需手动激活
