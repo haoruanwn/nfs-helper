@@ -1,76 +1,135 @@
+# src-tauri/scripts/lib/nfs_tool.py (Final, Robust Version)
+
+import subprocess
+import paramiko
+import logging
+import time
 import os
-from .actions import handle_share, handle_unshare
-from ..common.utils import print_error, print_info
 
 class NfsTool:
-    """
-    一个用于管理 NFS 共享和挂载操作的工具类。
-
-    该类封装了与主机和远程开发板交互所需的所有配置信息，
-    并提供了简单的方法来执行共享挂载和卸载清理操作。
-    """
     def __init__(self, pc_ip, pc_password, share_path, board_ip, board_user, board_password, board_mount_path):
-        """
-        初始化 NfsTool 实例。
+        self.pc_ip = str(pc_ip)
+        self.pc_password = str(pc_password)
+        self.share_path = os.path.expanduser(str(share_path))
+        
+        self.board_ip = str(board_ip)
+        self.board_user = str(board_user)
+        self.board_password = str(board_password)
+        self.board_mount_path = str(board_mount_path)
+        
+        self.ssh_client = paramiko.SSHClient()
+        self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        logging.info("--- NFS Tool Initialized (Final Version) ---")
 
-        参数:
-            pc_ip (str): 本地主机（NFS 服务端）的 IP 地址。
-            pc_password (str): 本地主机的 sudo 密码。
-            share_path (str): 本地主机上要共享的目录路径。
-            board_ip (str): 远程开发板的 IP 地址。
-            board_user (str): 登录远程开发板的用户名。
-            board_password (str): 登录远程开发板的密码。
-            board_mount_path (str): 在远程开发板上的挂载点路径。
-        """
-        self.pc_ip = pc_ip
-        self.pc_password = pc_password
-        self.share_path = os.path.expanduser(share_path) # 展开波浪号 ~
-        self.board_ip = board_ip
-        self.board_user = board_user
-        self.board_password = board_password
-        self.board_mount_path = board_mount_path
+    def _run_local_sudo_command(self, command):
+        logging.info(f"Executing on PC: {command}")
+        proc = subprocess.Popen(
+            ['sudo', '-S'] + command.split(),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        stdout, stderr = proc.communicate(self.pc_password + '\n')
+        if proc.returncode != 0:
+            raise Exception(f"Local command failed: '{command}'. Error: {stderr.strip()}")
+        return stdout.strip()
 
-    def _get_config_for_actions(self):
+    def _is_nfs_share_configured(self):
+        logging.info(f"Checking if share for '{self.share_path}' is already configured...")
+        try:
+            exports_content = self._run_local_sudo_command(f"cat /etc/exports")
+            for line in exports_content.splitlines():
+                if line.strip().startswith('#') or not line.strip(): continue
+                if self.share_path in line.split()[0]:
+                    logging.info(f"Found existing configuration for '{self.share_path}'. Skipping modification.")
+                    return True
+            logging.info("No existing configuration found.")
+            return False
+        except Exception as e:
+            logging.warning(f"Could not check /etc/exports, proceeding anyway. Error: {e}")
+            return False
+
+    def _configure_local_nfs(self):
+        logging.info("Step 1: Configuring local NFS share...")
+        if self._is_nfs_share_configured(): return
+
+        exports_line = f'{self.share_path} {self.board_ip}(rw,sync,no_subtree_check,no_root_squash)'
+        command = f'echo "{exports_line}" | tee -a /etc/exports'
+        proc = subprocess.Popen(
+            ['sudo', '-S', 'sh', '-c', command],
+            stdin=subprocess.PIPE, text=True
+        )
+        proc.communicate(self.pc_password + '\n')
+        if proc.returncode != 0: raise Exception("Failed to update /etc/exports")
+        logging.info("/etc/exports configured successfully.")
+        self._run_local_sudo_command('exportfs -ra')
+        logging.info("NFS exports applied.")
+
+    def _run_remote_command(self, command, check=True):
         """
-        辅助方法，生成一个字典来模拟原 actions.py 所需的 config 对象。
-        这样做可以避免大规模重构 actions.py 中的函数签名。
+        【已升级】在远程设备上执行命令。
+        智能判断是否需要sudo。
         """
-        return {
-            'NFS_HOST': {'share_path': self.share_path},
-            'PC_INFO': {'password': self.pc_password},
-            'BOARD_INFO': {
-                'ip': self.board_ip,
-                'user': self.board_user,
-                'password': self.board_password
-            },
-            'MOUNT_POINT': {'path': self.board_mount_path}
-        }
+        logging.info(f"Executing on board: {command}")
+        
+        # 【新逻辑】如果用户是root，就不需要sudo
+        if self.board_user == 'root':
+            final_command = command
+            stdin, stdout, stderr = self.ssh_client.exec_command(final_command)
+        else:
+            final_command = f"sudo -S {command}"
+            stdin, stdout, stderr = self.ssh_client.exec_command(final_command)
+            stdin.write(self.board_password + '\n')
+            stdin.flush()
+        
+        exit_status = stdout.channel.recv_exit_status()
+        
+        if check and exit_status != 0:
+            error_output = stderr.read().decode().strip()
+            raise Exception(f"Remote command failed: '{command}'. Exit code: {exit_status}. Error: {error_output}")
+        
+        return exit_status, stdout.read().decode().strip(), stderr.read().decode().strip()
+
+    def _mount_on_board(self):
+        """【已升级】在开发板上挂载，使用更简单的命令序列。"""
+        logging.info(f"Step 2: Preparing mount point on board {self.board_user}@{self.board_ip}...")
+        try:
+            self.ssh_client.connect(
+                hostname=self.board_ip, username=self.board_user, password=self.board_password, timeout=15
+            )
+            logging.info("SSH connection successful.")
+
+            # 1. 检查是否已挂载 (mountpoint 命令可能不存在，使用更通用的 'grep' 检查)
+            check_mount_cmd = f"grep -qs '{self.board_mount_path}' /proc/mounts"
+            exit_code, _, _ = self._run_remote_command(check_mount_cmd, check=False)
+            if exit_code == 0:
+                logging.warning(f"'{self.board_mount_path}' is already a mount point. Unmounting first.")
+                self._run_remote_command(f"umount -f -l {self.board_mount_path}")
+
+            # 2. 【新逻辑】检查目录是否存在
+            check_dir_cmd = f"test -d {self.board_mount_path}"
+            exit_code, _, _ = self._run_remote_command(check_dir_cmd, check=False)
+            if exit_code == 0:
+                logging.warning(f"Directory '{self.board_mount_path}' already exists. Removing it.")
+                self._run_remote_command(f"rm -rf {self.board_mount_path}")
+
+            # 3. 创建新目录并挂载
+            logging.info(f"Creating new mount point '{self.board_mount_path}'...")
+            self._run_remote_command(f"mkdir -p {self.board_mount_path}")
+
+            mount_command = f"mount -t nfs -o nfsvers=3,nolock {self.pc_ip}:{self.share_path} {self.board_mount_path}"
+            self._run_remote_command(mount_command)
+
+            logging.info("Mount operation completed successfully on board.")
+
+        finally:
+            if self.ssh_client.get_transport() and self.ssh_client.get_transport().is_active():
+                self.ssh_client.close()
+                logging.info("SSH connection closed.")
 
     def run(self):
-        """
-        执行核心的“共享与挂载”操作。
-
-        它会调用 actions.py 中的 handle_share 函数，并传入所需的全部配置。
-        如果过程中发生任何错误，handle_share 内部会尝试自动回滚。
-        """
-        print_info("--- 开始执行 NFS 共享和挂载流程 ---")
-        config = self._get_config_for_actions()
         try:
-            # 调用核心处理函数
-            handle_share(config)
+            self._configure_local_nfs()
+            self._mount_on_board()
+            logging.info("✅ All operations completed successfully!")
         except Exception as e:
-            # actions.py 中的函数已经打印了详细错误并尝试了回滚
-            # 这里我们只需将异常再次抛出，以便 sidecar.py 能捕获到并以失败状态退出
-            raise RuntimeError(f"NFS 共享操作最终失败: {e}")
-
-    def unshare(self):
-        """
-        执行“卸载与清理”操作。
-        """
-        print_info("--- 开始执行 NFS 卸载和清理流程 ---")
-        config = self._get_config_for_actions()
-        try:
-            handle_unshare(config)
-        except Exception as e:
-            print_error(f"卸载清理过程中发生错误: {e}")
+            logging.error(f"A critical error occurred: {e}")
             raise
