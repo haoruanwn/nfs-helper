@@ -60,18 +60,19 @@
 
 本应用使用基于 Debian 12 的 Docker 镜像进行构建，以确保良好的兼容性。
 
-| 镜像                                            | 基础镜像          | 描述                                         |
-| ----------------------------------------------- | ----------------- | -------------------------------------------- |
-| `ivangabriele/tauri-builder:debian-bookworm-20` | `rust:1-bookworm` | Debian v12 ("bookworm") + Rust v1 + Node v20 |
+| 镜像                                                         | 基础镜像          | 描述                                         |
+| ------------------------------------------------------------ | ----------------- | -------------------------------------------- |
+| [`ivangabriele/tauri-builder:debian-bookworm-20`](https://hub.docker.com/r/ivangabriele/tauri) | `rust:1-bookworm` | Debian v12 ("bookworm") + Rust v1 + Node v20 |
 
 #### 已测试的发行版
 
 目前已在以下发行版上测试并可以成功运行：
 
-| 发行版    | 桌面环境 | 显示服务器 |
-| --------- | -------- | ---------- |
-| Fedora 42 | KDE      | Wayland    |
-| Debian 12 | KDE      | Wayland    |
+| 发行版       | 桌面环境 | 显示服务器 |
+| ------------ | -------- | ---------- |
+| Fedora 42    | KDE      | Wayland    |
+| Debian 12    | KDE      | Wayland    |
+| Ubuntu 24.04 | Gnome    | X11        |
 
 
 ### Bug说明
@@ -84,7 +85,7 @@
 Failed to create GBM buffer of size 800x600: 无效的参数
 ```
 
-可以暂时禁用硬件加速来解决，参考 [测试脚本](https://www.google.com/search?q=./test.sh)。
+可以暂时禁用硬件加速来解决，参考 [测试脚本](./test.sh)。
 
 运行 AppImage 时也需要添加相应环境变量：
 
@@ -96,3 +97,13 @@ WEBKIT_DISABLE_COMPOSITING_MODE=1 ./nfs-helper_0.1.0_amd64.AppImage
 应用使用基于debian12的docker镜像构建，打包的appimage运行在ubuntu22.04上时，会有一个库有版本兼容性问题。目前猜测可以把这个动态库直接打包进appimage，等待后续支持
 
 ![C2768852E67BBD66071D379E8D7585BE](https://markdownforyuanhao.oss-cn-hangzhou.aliyuncs.com/img1/20250810003817934.png)
+
+### 致谢与第三方许可证
+
+本项目采用 Apache 2.0 开源协议。项目使用了下列开源组件，这些组件遵循其各自的许可协议。
+
+| Library                                                | License               |
+| ------------------------------------------------------ | --------------------- |
+| [**Tauri 2**](https://github.com/tauri-apps/tauri.git) | `Apache-2.0` OR `MIT` |
+| [**Paramiko**](https://github.com/paramiko/paramiko)   | `LGPL-2.1`            |
+
